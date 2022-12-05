@@ -17,7 +17,7 @@ final class PlanAddViewController: UIViewController {
     
     private lazy var scrollView: UIScrollView = {
         let scrollView = UIScrollView()
-
+        
         scrollView.backgroundColor = .white
         scrollView.showsVerticalScrollIndicator = false
         return scrollView
@@ -159,7 +159,7 @@ final class PlanAddViewController: UIViewController {
     
     private lazy var addButton: UIButton = {
         let button = UIButton()
-
+        
         button.setTitle("여행 추가", for: .normal)
         button.setTitleColor(.white, for: .normal)
         button.backgroundColor = .grey3
@@ -171,13 +171,11 @@ final class PlanAddViewController: UIViewController {
     // MARK: - Properties
     
     private let viewModel: PlanAddViewModel
-    private let travel: Travel
     
     // MARK: - Lifecycles
     
     init(travel: Travel) {
-        viewModel = PlanAddViewModel()
-        self.travel = travel
+        viewModel = PlanAddViewModel(travel: travel)
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -315,7 +313,7 @@ extension PlanAddViewController {
             name: UIResponder.keyboardWillHideNotification, object: nil
         )
     }
-  
+    
     @objc private func keyboardWillShow(notification: NSNotification) {
         guard let userInfo = notification.userInfo,
               let keyboardSize = (userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
@@ -330,7 +328,7 @@ extension PlanAddViewController {
         )
         scrollView.contentInset = contentInsets
     }
-
+    
     @objc private func keyboardWillHide(notification: NSNotification) {
         scrollView.contentInset = .zero
     }
@@ -344,13 +342,7 @@ extension PlanAddViewController {
 
 extension PlanAddViewController {
     @objc func dateInputButtonTouchUpInside() {
-        let calendarViewController = CalendarViewController(
-            touchOption: .single, type: .dateAndTime, startDate: travel.startDate, endDate: travel.endDate
-        )
-        print(travel)
-        calendarViewController.delegate = self
-        
-        present(calendarViewController, animated: true)
+        viewModel.dateInputButtonTapped()
     }
     
     @objc func textFieldDidChange(_ sender: UITextField) {
@@ -364,19 +356,16 @@ extension PlanAddViewController {
     }
     
     @objc func addButtonTouchUpInside() {
-        guard let name = planTitleTextField.text,
-              let dateString = dateInputButton.titleLabel?.text,
-              let date = Date.convertDateStringToDate(
-                dateString: dateString,
-                formatter: Date.yearMonthDayTimeDateFormatter
-              ),
-              let content = descriptionTextView.text
-        else {
-            return
-        }
-        let planDTO = PlanDTO(name: name, date: date, content: content, travel: travel)
-        viewModel.postPlan(plan: planDTO) { [weak self] in
-            self?.navigationController?.popViewController(animated: true)
+        let result = viewModel.addPlan(
+            name: planTitleTextField.text,
+            dateString: dateInputButton.titleLabel?.text,
+            content: descriptionTextView.text
+        )
+        switch result {
+        case .success:
+            self.navigationController?.popViewController(animated: true)
+        case .failure:
+            presentErrorAlert(title: CoreDataError.saveFailure(.plan).errorDescription)
         }
     }
     
@@ -420,6 +409,17 @@ extension PlanAddViewController: UITextViewDelegate {
 // MARK: - PlanAddViewDelegate
 
 extension PlanAddViewController: PlanAddViewDelegate {
+    func presentCalendarViewController(travel: Travel) {
+        let calendarViewController = CalendarViewController(
+            touchOption: .single,
+            type: .dateAndTime,
+            startDate: travel.startDate,
+            endDate: travel.endDate
+        )
+        calendarViewController.delegate = self
+        present(calendarViewController, animated: true)
+    }
+    
     func isVaildInputs(isValid: Bool) {
         addButton.isEnabled = isValid
         addButton.backgroundColor = isValid ? .primaryOrange : .grey3

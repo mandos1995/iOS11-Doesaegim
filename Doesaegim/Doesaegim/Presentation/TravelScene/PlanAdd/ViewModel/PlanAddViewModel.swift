@@ -11,6 +11,7 @@ final class PlanAddViewModel: PlanAddViewProtocol {
     
     // MARK: - Properties
     
+    private let repository: PlanAddLocalRepository
     weak var delegate: PlanAddViewDelegate?
     var isValidInput: Bool {
         didSet {
@@ -35,14 +36,18 @@ final class PlanAddViewModel: PlanAddViewProtocol {
         }
     }
     
+    private let travel: Travel
+    
     // MARK: - Lifecycles
     
-    init() {
+    init(travel: Travel) {
         isValidName = false
         isValidPlace = false
         isValidDate = false
         isValidInput = isValidName && isValidPlace && isValidDate
         isClearInput = true
+        repository = PlanAddLocalRepository()
+        self.travel = travel
     }
     
     // MARK: - Helpers
@@ -76,7 +81,7 @@ final class PlanAddViewModel: PlanAddViewProtocol {
         defer {
             isValidInput = isValidName && isValidPlace && isValidDate
         }
-        guard let date = Date.convertDateStringToDate(
+        guard let _ = Date.convertDateStringToDate(
             dateString: dateString,
             formatter: Date.yearMonthDayTimeDateFormatter
         ) else {
@@ -84,17 +89,6 @@ final class PlanAddViewModel: PlanAddViewProtocol {
             return
         }
         isValidDate = true
-    }
-    
-    func postPlan(plan: PlanDTO, completion: @escaping () -> Void) {
-        let result = Plan.addAndSave(with: plan)
-        switch result {
-        case .success:
-            completion()
-        case .failure(let error):
-            print(error.localizedDescription)
-            
-        }
     }
     
     func isClearInput(title: String?, place: String?, date: String?, description: String?) {
@@ -107,6 +101,26 @@ final class PlanAddViewModel: PlanAddViewProtocol {
         }
         isClearInput = true
     }
+    
+    func addPlan(name: String?, dateString: String?, content: String?) -> Result<Plan, Error> {
+        guard let name,
+              let dateString,
+              let date = Date.convertDateStringToDate(
+                dateString: dateString,
+                formatter: Date.yearMonthDayTimeDateFormatter
+              ),
+              let content else {
+            return .failure(CoreDataError.saveFailure(.plan))
+        }
+        let planDTO = PlanDTO(name: name, date: date, content: content, travel: travel)
+        return repository.addPlan(planDTO)
+    }
+    
+    func dateInputButtonTapped() {
+        delegate?.presentCalendarViewController(travel: travel)
+    }
+    
+    
 }
 
 fileprivate extension PlanAddViewModel {
